@@ -345,11 +345,28 @@ async def process_message(data: ChatMessage) -> None:
                                 }
                             })
                             logger.info(f"🔧 New function call initialized: {tool_call.function.name}")
+                            
+                            # Stream function call announcement to Lexia
+                            function_msg = f"\n🔧 **Calling function:** {tool_call.function.name}"
+                            lexia.stream_chunk(data, function_msg)
                         
                         # Accumulate function arguments
                         if tool_call.function.arguments:
                             function_calls[tool_call.index]["function"]["arguments"] += tool_call.function.arguments
                             logger.info(f"🔧 Accumulated arguments for function {tool_call.index}: {tool_call.function.arguments}")
+                            
+                            # Stream function execution progress to Lexia
+                            try:
+                                import json
+                                current_args = function_calls[tool_call.index]["function"]["arguments"]
+                                # Try to parse as JSON to show progress
+                                if current_args.endswith('"') or current_args.endswith('}') or current_args.endswith(']'):
+                                    parsed_args = json.loads(current_args)
+                                    progress_msg = f"\n⚙️ **Function parameters:** {json.dumps(parsed_args, indent=2)}"
+                                    lexia.stream_chunk(data, progress_msg)
+                            except json.JSONDecodeError:
+                                # JSON not complete yet, don't stream partial data
+                                pass
             
             # Capture usage information from the last chunk
             if chunk.usage:
@@ -359,6 +376,7 @@ async def process_message(data: ChatMessage) -> None:
         logger.info(f"✅ OpenAI response complete. Length: {len(full_response)} characters")
         
         # Process function calls if any were made
+        # Note: Function execution progress is now streamed to Lexia for transparency
         if function_calls:
             logger.info(f"🔧 Processing {len(function_calls)} function calls...")
             logger.info(f"🔧 Function calls details: {function_calls}")
@@ -367,11 +385,19 @@ async def process_message(data: ChatMessage) -> None:
                 try:
                     logger.info(f"🔧 Processing function: {function_call['function']['name']}")
                     
+                    # Stream generic function processing start to Lexia
+                    processing_msg = f"\n⚙️ **Processing function:** {function_call['function']['name']}"
+                    lexia.stream_chunk(data, processing_msg)
+                    
                     if function_call["function"]["name"] == "generate_image":
                         import json
                         args = json.loads(function_call["function"]["arguments"])
                         
                         logger.info(f"🎨 Executing DALL-E image generation with args: {args}")
+                        
+                        # Stream function execution start to Lexia
+                        execution_msg = f"\n🚀 **Executing function:** {function_call['function']['name']}"
+                        lexia.stream_chunk(data, execution_msg)
                         
                         # Generate the image using our DALL-E function
                         image_url = await generate_image_with_dalle(
@@ -382,6 +408,10 @@ async def process_message(data: ChatMessage) -> None:
                         )
                         
                         logger.info(f"✅ DALL-E image generated: {image_url}")
+                        
+                        # Stream function completion to Lexia
+                        completion_msg = f"\n✅ **Function completed successfully:** {function_call['function']['name']}"
+                        lexia.stream_chunk(data, completion_msg)
                         
                         # Store the image URL for inclusion in the final response
                         generated_image_url = image_url
