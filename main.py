@@ -34,7 +34,6 @@ Author: Lexia Team
 License: MIT
 """
 
-import asyncio
 import logging
 from openai import OpenAI
 import os
@@ -42,7 +41,6 @@ import requests
 import tiktoken
 import PyPDF2
 import io
-import time
 
 # Configure logging with informative format
 logging.basicConfig(
@@ -64,6 +62,7 @@ from lexia import (
 )
 from agent_utils import format_system_prompt, format_messages_for_openai
 from lexia.utils import set_env_variables, get_openai_api_key
+from function_handler import get_available_functions, process_function_calls
 
 # Initialize core services
 conversation_manager = ConversationManager(max_history=10)  # Keep last 10 messages per thread
@@ -75,66 +74,6 @@ app = create_lexia_app(
     version="1.0.0",
     description="Production-ready AI agent starter kit with Lexia integration"
 )
-
-async def generate_image_with_dalle(
-    prompt: str, 
-    size: str = "1024x1024", 
-    quality: str = "standard", 
-    style: str = "vivid"
-) -> str:
-    """
-    Generate an image using OpenAI's DALL-E 3 model.
-    
-    This function demonstrates how to integrate external AI services with your agent.
-    You can extend this pattern to add other AI capabilities like speech synthesis,
-    video generation, or custom ML model inference.
-    
-    Args:
-        prompt: Detailed text description of the image to generate
-        size: Image dimensions - "1024x1024" (square), "1792x1024" (landscape), or "1024x1792" (portrait)
-        quality: Image quality - "standard" or "hd" (higher cost but better quality)
-        style: Image style - "vivid" (dramatic) or "natural" (realistic)
-    
-    Returns:
-        str: URL of the generated image
-        
-    Raises:
-        Exception: If image generation fails or API key is missing
-        
-    Example:
-        >>> image_url = await generate_image_with_dalle("A serene mountain landscape at sunset")
-        >>> print(f"Generated image: {image_url}")
-    """
-    try:
-        # Get OpenAI API key from environment variables
-        openai_api_key = os.getenv('OPENAI_API_KEY')
-        if not openai_api_key:
-            raise ValueError("OpenAI API key not found in environment variables")
-        
-        # Initialize OpenAI client
-        client = OpenAI(api_key=openai_api_key)
-        
-        logger.info(f"🎨 Generating image with DALL-E 3: {prompt}")
-        
-        # Generate image using DALL-E 3
-        response = client.images.generate(
-            model="dall-e-3",
-            prompt=prompt,
-            size=size,
-            quality=quality,
-            style=style,
-            n=1
-        )
-        
-        image_url = response.data[0].url
-        logger.info(f"✅ Image generated successfully: {image_url}")
-        
-        return image_url
-        
-    except Exception as e:
-        error_msg = f"Error generating image with DALL-E: {str(e)}"
-        logger.error(error_msg, exc_info=True)
-        raise Exception(error_msg)
 
 async def process_message(data: ChatMessage) -> None:
     """
@@ -266,41 +205,8 @@ async def process_message(data: ChatMessage) -> None:
         logger.info(f"💬 System prompt: {system_prompt[:100]}...")
         logger.info(f"📤 Messages being sent to OpenAI: {messages}")
         
-        # Define available functions for the AI (extend this list for custom capabilities)
-        available_functions = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "generate_image",
-                    "description": "Generate an image using DALL-E 3 based on a text description",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "prompt": {
-                                "type": "string",
-                                "description": "A detailed description of the image you want to generate. Be specific about style, colors, composition, and mood."
-                            },
-                            "size": {
-                                "type": "string",
-                                "enum": ["1024x1024", "1792x1024", "1024x1792"],
-                                "description": "The size of the generated image. 1024x1024 is square, 1792x1024 is landscape, 1024x1792 is portrait."
-                            },
-                            "quality": {
-                                "type": "string",
-                                "enum": ["standard", "hd"],
-                                "description": "Image quality. HD is higher quality but costs more."
-                            },
-                            "style": {
-                                "type": "string",
-                                "enum": ["vivid", "natural"],
-                                "description": "Image style. Vivid is more dramatic, natural is more realistic."
-                            }
-                        },
-                        "required": ["prompt"]
-                    }
-                }
-            }
-        ]
+        # Get available functions from function handler
+        available_functions = get_available_functions()
         
         # Stream response from OpenAI with function calling support
         stream = client.chat.completions.create(
@@ -375,65 +281,10 @@ async def process_message(data: ChatMessage) -> None:
         
         logger.info(f"✅ OpenAI response complete. Length: {len(full_response)} characters")
         
-        # Process function calls if any were made
-        # Note: Function execution progress is now streamed to Lexia for transparency
-        if function_calls:
-            logger.info(f"🔧 Processing {len(function_calls)} function calls...")
-            logger.info(f"🔧 Function calls details: {function_calls}")
-            
-            for function_call in function_calls:
-                try:
-                    logger.info(f"🔧 Processing function: {function_call['function']['name']}")
-                    
-                    # Stream generic function processing start to Lexia
-                    processing_msg = f"\n⚙️ **Processing function:** {function_call['function']['name']}"
-                    lexia.stream_chunk(data, processing_msg)
-                    
-                    if function_call["function"]["name"] == "generate_image":
-                        import json
-                        args = json.loads(function_call["function"]["arguments"])
-                        
-                        logger.info(f"🎨 Executing DALL-E image generation with args: {args}")
-                        
-                        # Stream function execution start to Lexia
-                        execution_msg = f"\n🚀 **Executing function:** {function_call['function']['name']}"
-                        lexia.stream_chunk(data, execution_msg)
-                        
-                        # Generate the image using our DALL-E function
-                        image_url = await generate_image_with_dalle(
-                            prompt=args.get("prompt"),
-                            size=args.get("size", "1024x1024"),
-                            quality=args.get("quality", "standard"),
-                            style=args.get("style", "vivid")
-                        )
-                        
-                        logger.info(f"✅ DALL-E image generated: {image_url}")
-                        
-                        # Stream function completion to Lexia
-                        completion_msg = f"\n✅ **Function completed successfully:** {function_call['function']['name']}"
-                        lexia.stream_chunk(data, completion_msg)
-                        
-                        # Store the image URL for inclusion in the final response
-                        generated_image_url = image_url
-                        logger.info(f"🖼️ Set generated_image_url to: {generated_image_url}")
-                        
-                        # Add image generation result to response
-                        image_result = f"\n\n🎨 **Image Generated Successfully!**\n\n**Prompt:** {args.get('prompt')}\n**Image URL:** {image_url}\n\n*Image created with DALL-E 3*"
-                        full_response += image_result
-                        
-                        # Stream the image result to Lexia
-                        lexia.stream_chunk(data, image_result)
-                        
-                        logger.info(f"✅ Image generation completed: {image_url}")
-                        
-                except Exception as e:
-                    error_msg = f"Error executing function {function_call['function']['name']}: {str(e)}"
-                    logger.error(error_msg, exc_info=True)
-                    function_error = f"\n\n❌ **Function Execution Error:** {error_msg}"
-                    full_response += function_error
-                    lexia.stream_chunk(data, function_error)
-        else:
-            logger.info("🔧 No function calls to process")
+        # Process function calls if any were made using the function handler
+        function_result, generated_image_url = await process_function_calls(function_calls, lexia, data)
+        if function_result:
+            full_response += function_result
         
         logger.info(f"🖼️ Final generated_image_url value: {generated_image_url}")
         
