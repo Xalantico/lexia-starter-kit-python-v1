@@ -24,8 +24,8 @@ A clean, minimal example showing how to build AI agents that integrate with the 
 
 1. **Clone the repository**
    ```bash
-   git clone <your-repo-url>
-   cd lexia-starter-kit
+   git clone https://github.com/Xalantico/lexia-starter-kit-python-v1
+   cd lexia-starter-kit-python-v1
    ```
 
 2. **Create virtual environment**
@@ -39,13 +39,8 @@ A clean, minimal example showing how to build AI agents that integrate with the 
    pip install -r requirements.txt
    ```
 
-4. **Set environment variables**
-   ```bash
-   # Create .env file
-   echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
-   ```
 
-5. **Run the starter kit**
+4. **Run the starter kit**
    ```bash
    python main.py
    ```
@@ -56,7 +51,6 @@ The server will start on `http://localhost:8000`
 
 Once running, you can access:
 
-- **Interactive API Docs**: `http://localhost:8000/docs`
 - **Health Check**: `http://localhost:8000/api/v1/health`
 - **Chat Endpoint**: `http://localhost:8000/api/v1/send_message`
 
@@ -142,10 +136,46 @@ The starter kit supports:
 
 ## 🧪 Testing
 
-Test your setup by sending a message to the chat endpoint:
+### 1. Setup ngrok for External Access
+
+To test your agent from the Lexia platform, you'll need to expose your local server to the internet using ngrok:
+
+1. **Install ngrok**
+   ```bash
+   # On macOS with Homebrew
+   brew install ngrok
+   
+   # Or download from https://ngrok.com/download
+   ```
+
+2. **Start your local server**
+   ```bash
+   python main.py
+   ```
+
+3. **Expose your server with ngrok**
+   ```bash
+   ngrok http 8000
+   ```
+
+4. **Copy the ngrok URL**
+   ngrok will display a URL like: `https://abc123.ngrok-free.app`
+
+### 2. Configure Agent in Lexia Platform
+
+1. Go to the [Lexia Platform](https://app.lexiaplatform.com)
+2. Navigate to **Agents** → **Create New Agent**
+3. In the **Agent Configuration** section:
+   - Set **Agent Type** to "Custom Agent"
+   - Set **Message Endpoint** to `https://abc123.ngrok-free.app/api/v1/send_message`
+4. Save your agent configuration
+
+### 3. Test Your Agent
+
+Once configured, test your setup by sending a message through the Lexia platform or directly via curl:
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/send_message" \
+curl -X POST "https://your-ngrok-url.ngrok-free.app/api/v1/send_message" \
      -H "Content-Type: application/json" \
      -d '{
        "thread_id": "test_thread",
@@ -153,6 +183,8 @@ curl -X POST "http://localhost:8000/api/v1/send_message" \
        "model": "gpt-3.5-turbo"
      }'
 ```
+
+**Note**: Replace `your-ngrok-url` with your actual ngrok URL. The ngrok URL will change each time you restart ngrok unless you have a paid account.
 
 ## 🐛 Troubleshooting
 
