@@ -1,0 +1,19 @@
+# Lexia Starter Kit Dependencies
+# ==============================
+
+# Core Lexia package
+lexia>=1.1.0
+
+# OpenAI API client
+openai>=1.0.0
+
+# Web framework (required for Lexia web functionality)
+fastapi>=0.100.0
+uvicorn>=0.20.0
+
+# PDF processing and token counting
+PyPDF2>=3.0.0
+tiktoken>=0.5.0
+
+# HTTP requests for file processing
+requests>=2.25.0
