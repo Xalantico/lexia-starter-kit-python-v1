@@ -58,10 +58,10 @@ from lexia import (
     Variable, 
     create_success_response,
     create_lexia_app,
-    add_standard_endpoints
+    add_standard_endpoints,
+    Variables
 )
 from agent_utils import format_system_prompt, format_messages_for_openai
-from lexia.utils import set_env_variables, get_openai_api_key
 from function_handler import get_available_functions, process_function_calls
 
 # Initialize core services
@@ -126,9 +126,9 @@ async def process_message(data: ChatMessage) -> None:
         logger.info(f"📝 Message: {data.message[:100]}...")
         logger.info(f"🔑 Response UUID: {data.response_uuid}")
         
-        # Set environment variables and get OpenAI API key
-        set_env_variables(data.variables)
-        openai_api_key = get_openai_api_key(data.variables)
+        # Get OpenAI API key using Variables helper class
+        vars = Variables(data.variables)
+        openai_api_key = vars.get("OPENAI_API_KEY")
         if not openai_api_key:
             error_msg = "OpenAI API key not found in variables"
             logger.error(error_msg)

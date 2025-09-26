@@ -20,6 +20,7 @@ import logging
 import os
 import json
 from openai import OpenAI
+from lexia import Variables
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ AVAILABLE_FUNCTIONS = [
 
 async def generate_image_with_dalle(
     prompt: str, 
+    variables: list = None,
     size: str = "1024x1024", 
     quality: str = "standard", 
     style: str = "vivid"
@@ -90,10 +92,14 @@ async def generate_image_with_dalle(
         >>> print(f"Generated image: {image_url}")
     """
     try:
-        # Get OpenAI API key from environment variables
-        openai_api_key = os.getenv('OPENAI_API_KEY')
+        # Get OpenAI API key using Variables helper class
+        if not variables:
+            raise ValueError("Variables not provided to generate_image_with_dalle")
+        
+        vars = Variables(variables)
+        openai_api_key = vars.get("OPENAI_API_KEY")
         if not openai_api_key:
-            raise ValueError("OpenAI API key not found in environment variables")
+            raise ValueError("OpenAI API key not found in variables")
         
         # Initialize OpenAI client
         client = OpenAI(api_key=openai_api_key)
@@ -184,6 +190,7 @@ async def _execute_generate_image(
         # Generate the image using our DALL-E function
         image_url = await generate_image_with_dalle(
             prompt=args.get("prompt"),
+            variables=data.variables,
             size=args.get("size", "1024x1024"),
             quality=args.get("quality", "standard"),
             style=args.get("style", "vivid")
