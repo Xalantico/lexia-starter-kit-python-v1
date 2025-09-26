@@ -130,9 +130,10 @@ async def process_message(data: ChatMessage) -> None:
         vars = Variables(data.variables)
         openai_api_key = vars.get("OPENAI_API_KEY")
         if not openai_api_key:
-            error_msg = "OpenAI API key not found in variables"
-            logger.error(error_msg)
-            lexia.send_error(data, error_msg)
+            missing_key_msg = "Sorry, the OpenAI API key is missing or empty. From menu right go to admin mode, then agents and edit the agent in last section you can set the openai key."
+            logger.error("OpenAI API key not found or empty in variables")
+            lexia.stream_chunk(data, missing_key_msg)
+            lexia.complete_response(data, missing_key_msg)
             return
         
         # Initialize OpenAI client and conversation management
