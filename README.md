@@ -8,7 +8,8 @@ A clean, minimal example showing how to build AI agents that integrate with the 
 - **Memory Management**: Built-in conversation history and thread management
 - **File Processing**: Support for PDF text extraction and image analysis
 - **Streaming Responses**: Real-time response streaming via Lexia's infrastructure
-- **Function Calling**: Built-in DALL-E 3 image generation capabilities
+- **Function Calling**: Built-in DALL-E 3 image generation capabilities with Lexia image markdown
+- **Variables Helper**: Modern Variables class for clean API key and configuration management
 - **Error Handling**: Robust error handling and logging throughout
 - **Standard Endpoints**: Inherited endpoints from Lexia package for consistency
 
@@ -83,6 +84,7 @@ Once running, you can access:
 - **`main.py`**: Main application entry point with AI processing logic
 - **`memory/`**: Conversation history and thread management
 - **`agent_utils.py`**: Utility functions for OpenAI integration
+- **`function_handler.py`**: Function calling capabilities including DALL-E 3 image generation
 
 ## 🔧 Customization
 
@@ -133,6 +135,65 @@ The starter kit supports:
 - **PDF Processing**: Automatic text extraction and token counting
 - **Image Analysis**: Vision capabilities for image-based queries
 - **File Size Limits**: Built-in token limits to prevent API overload
+
+## 🔑 Configuration Management
+
+### Variables Helper Class
+
+The starter kit uses the modern Variables helper class from the Lexia package for clean configuration management:
+
+```python
+from lexia import Variables
+
+# Initialize variables helper
+vars = Variables(data.variables)
+
+# Get API keys and configuration
+openai_key = vars.get("OPENAI_API_KEY")
+custom_config = vars.get("CUSTOM_CONFIG")
+database_url = vars.get("DATABASE_URL")
+
+# Convenience methods
+openai_key = vars.get_openai_key()
+anthropic_key = vars.get_anthropic_key()
+groq_key = vars.get_groq_key()
+```
+
+### Benefits of Variables Helper
+
+- **Clean API**: Object-oriented approach instead of utility functions
+- **Better Performance**: Built-in caching for faster lookups
+- **Flexible**: Easy to change variable names without code changes
+- **Consistent**: Same pattern across all Lexia integrations
+
+## 🖼️ Image Generation with Lexia Markdown
+
+The starter kit includes DALL-E 3 image generation with Lexia's new image markdown functionality:
+
+### How It Works
+
+When generating images, the system automatically wraps the process with Lexia's image markdown tags:
+
+```python
+# Before image generation
+lexia_handler.stream_chunk(data, "[lexia.image.start]")
+
+# Generate image with DALL-E 3
+image_url = await generate_image_with_dalle(...)
+
+# After image generation
+lexia_handler.stream_chunk(data, "[lexia.image.end]")
+
+# Include image URL in response
+image_result = f"Image URL: [lexia.image.start]{image_url}[lexia.image.end]"
+```
+
+### Features
+
+- **Automatic Markdown**: Images are automatically wrapped with Lexia image tags
+- **Real-time Streaming**: Users see progress during image generation
+- **Error Handling**: Graceful fallback if image generation fails
+- **Customizable**: Easy to modify image parameters (size, quality, style)
 
 ## 🧪 Testing
 
@@ -191,8 +252,11 @@ curl -X POST "https://your-ngrok-url.ngrok-free.app/api/v1/send_message" \
 ### Common Issues
 
 1. **Import Errors**: Ensure all dependencies are installed correctly
-2. **API Key Issues**: Verify your OpenAI API key is set in environment variables
+2. **API Key Issues**: The starter kit now provides helpful error messages when the OpenAI API key is missing:
+   - "Sorry, the OpenAI API key is missing or empty. From menu right go to admin mode, then agents and edit the agent in last section you can set the openai key."
+   - This guides users to the correct location in the Lexia platform to configure their API key
 3. **Port Conflicts**: Change the port in `main.py` if 8000 is already in use
+4. **Variables Not Found**: Use the Variables helper class to access configuration values from Lexia requests
 
 ### Debug Mode
 
@@ -213,7 +277,8 @@ lexia-starter-kit/
 ├── memory/                # Memory management module
 │   ├── __init__.py
 │   └── conversation_manager.py
-└── agent_utils.py         # AI agent utilities
+├── agent_utils.py         # AI agent utilities
+└── function_handler.py    # Function calling capabilities (DALL-E 3)
 ```
 
 ## 🤝 Contributing
