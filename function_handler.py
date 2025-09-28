@@ -188,7 +188,7 @@ async def _execute_generate_image(
         lexia_handler.stream_chunk(data, execution_msg)
         
         # Stream image generation start markdown
-        lexia_handler.stream_chunk(data, "[lexia.image.start]")
+        lexia_handler.stream_chunk(data, "[lexia.loading.image.start]")
         
         # Generate the image using our DALL-E function
         image_url = await generate_image_with_dalle(
@@ -202,14 +202,14 @@ async def _execute_generate_image(
         logger.info(f"✅ DALL-E image generated: {image_url}")
         
         # Stream image generation end markdown
-        lexia_handler.stream_chunk(data, "[lexia.image.end]")
+        lexia_handler.stream_chunk(data, "[lexia.loading.image.end]")
         
         # Stream function completion to Lexia
         completion_msg = f"\n✅ **Function completed successfully:** generate_image"
         lexia_handler.stream_chunk(data, completion_msg)
         
         # Add image generation result to response
-        image_result = f"\n\n🎨 **Image Generated Successfully!**\n\n**Prompt:** {args.get('prompt')}\n**Image URL:** [lexia.image.start]{image_url} [lexia.image.end]\n\n*Image created with DALL-E 3*"
+        image_result = f"\n\n🎨 **Image Generated Successfully!**\n\n**Prompt:** {args.get('prompt')}\n**Image URL:** [lexia.image.start]{image_url}[lexia.image.end] \n\n*Image created with DALL-E 3*"
         
         # Stream the image result to Lexia
         lexia_handler.stream_chunk(data, image_result)
