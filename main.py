@@ -14,6 +14,7 @@ Key Features:
 - Function calling with DALL-E 3 image generation
 - Robust error handling and comprehensive logging
 - Inherited endpoints from Lexia package for consistency
+- Dev mode for local development without Centrifugo
 
 Architecture:
 - Main processing logic in process_message() function
@@ -22,18 +23,26 @@ Architecture:
 - Standard Lexia endpoints inherited from package
 
 Usage:
-    python main.py
+    python main.py              # Production mode (Centrifugo)
+    python main.py --dev        # Dev mode (no Centrifugo)
+    python main.py --prod       # Force production mode
+    
+    # Or with environment variable:
+    LEXIA_DEV_MODE=true python main.py
 
-The server will start on http://localhost:8000 with the following endpoints:
+The server will start on http://localhost:8005 with the following endpoints:
 - POST /api/v1/send_message - Main chat endpoint
 - GET /api/v1/health - Health check
 - GET /api/v1/ - Root information
 - GET /api/v1/docs - Interactive API documentation
+- GET /api/v1/stream/{channel} - SSE stream (dev mode only)
+- GET /api/v1/poll/{channel} - Polling endpoint (dev mode only)
 
 Author: Lexia Team
 License: MIT
 """
 
+import sys
 import logging
 from openai import OpenAI
 import os
@@ -64,9 +73,23 @@ from lexia import (
 from agent_utils import format_system_prompt, format_messages_for_openai
 from function_handler import get_available_functions, process_function_calls
 
+# Determine dev/prod mode from CLI flags or env var (default: prod)
+dev_mode_flag = None
+if '--dev' in sys.argv:
+    dev_mode_flag = True
+    print("🔧 Dev mode enabled via --dev flag")
+elif '--prod' in sys.argv:
+    dev_mode_flag = False
+    print("🚀 Production mode enabled via --prod flag")
+else:
+    env_val = os.environ.get('LEXIA_DEV_MODE', 'false').lower()
+    dev_mode_flag = env_val in ('true', '1', 'yes', 'y', 'on')
+    if dev_mode_flag:
+        print("🔧 Dev mode enabled via LEXIA_DEV_MODE environment variable")
+
 # Initialize core services
 conversation_manager = ConversationManager(max_history=10)  # Keep last 10 messages per thread
-lexia = LexiaHandler()
+lexia = LexiaHandler(dev_mode=dev_mode_flag)
 
 # Create the FastAPI app using Lexia's web utilities
 app = create_lexia_app(
@@ -233,7 +256,7 @@ async def process_message(data: ChatMessage) -> None:
             if chunk.choices[0].delta.content:
                 content = chunk.choices[0].delta.content
                 full_response += content
-                # Stream chunk to Lexia via Centrifugo
+                # Stream chunk to Lexia (handles dev/prod mode internally)
                 lexia.stream_chunk(data, content)
             
             # Handle function call chunks
@@ -326,9 +349,24 @@ if __name__ == "__main__":
     
     print("🚀 Starting Lexia AI Agent Starter Kit...")
     print("=" * 60)
-    print("📖 API Documentation: http://localhost:8000/docs")
-    print("🔍 Health Check: http://localhost:8000/api/v1/health")
-    print("💬 Chat Endpoint: http://localhost:8000/api/v1/send_message")
+    
+    # Display mode
+    if getattr(lexia, 'dev_mode', False):
+        print("🔧 DEV MODE ACTIVE - No Centrifugo required!")
+        print("   Use --prod flag or LEXIA_DEV_MODE=false for production")
+    else:
+        print("🟢 PRODUCTION MODE - Centrifugo/WebSocket streaming")
+        print("   Use --dev flag or LEXIA_DEV_MODE=true for local development")
+    
+    print("=" * 60)
+    print("📖 API Documentation: http://localhost:8005/docs")
+    print("🔍 Health Check: http://localhost:8005/api/v1/health")
+    print("💬 Chat Endpoint: http://localhost:8005/api/v1/send_message")
+    
+    if getattr(lexia, 'dev_mode', False):
+        print("📡 SSE Stream: http://localhost:8005/api/v1/stream/{channel}")
+        print("📊 Poll Stream: http://localhost:8005/api/v1/poll/{channel}")
+    
     print("=" * 60)
     print("\n✨ This starter kit demonstrates:")
     print("   - Clean integration with Lexia package")
@@ -339,8 +377,17 @@ if __name__ == "__main__":
     print("   - Function calling with DALL-E 3")
     print("   - Proper data structure for Lexia communication")
     print("   - Comprehensive error handling and logging")
+    
+    if getattr(lexia, 'dev_mode', False):
+        print("   - Dev mode streaming (SSE, no Centrifugo)")
+    else:
+        print("   - Production streaming (Centrifugo/WebSocket)")
+    
     print("\n🔧 Customize the process_message() function to add your AI logic!")
+    print("\n💡 Mode Selection:")
+    print("   python main.py --dev   # Local development (SSE streaming)")
+    print("   python main.py --prod  # Production (Centrifugo)")
     print("=" * 60)
     
     # Start the FastAPI server
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=5001)
