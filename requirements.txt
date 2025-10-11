@@ -2,7 +2,7 @@
 # ==============================
 
 # Core Lexia package
-lexia>=1.2.1
+lexia>=1.2.5
 
 # OpenAI API client
 openai>=1.0.0
