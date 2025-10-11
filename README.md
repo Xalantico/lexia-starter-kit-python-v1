@@ -1,3 +1,15 @@
+### Run Lexia Frontend locally
+
+If you have Node.js installed, you can run the Lexia frontend without source code using the runner:
+
+```bash
+npx lexia --port=3000 --agent-port=5000
+```
+
+This serves the UI at `http://localhost:3000` and proxies API calls to your local agent at `http://localhost:5000`.
+
+Uploads are available at `POST /api/upload` and files are served under `/uploads/*`.
+
 # Lexia AI Agent Starter Kit
 
 A clean, minimal example showing how to build AI agents that integrate with the Lexia platform. This starter kit demonstrates best practices for creating AI agents with proper memory management, streaming responses, and file processing capabilities.
