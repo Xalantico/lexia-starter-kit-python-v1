@@ -332,7 +332,7 @@ async def process_message(data: ChatMessage) -> None:
     except Exception as e:
         error_msg = f"Error processing message: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        lexia.send_error(data, error_msg)
+        lexia.send_error(data, error_msg, exception=e) 
 
 
 # Add standard Lexia endpoints including the inherited send_message endpoint
