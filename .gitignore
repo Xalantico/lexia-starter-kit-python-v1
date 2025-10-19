@@ -28,7 +28,7 @@ ENV/
 lexia_env/
 .venv/
 .env/
-
+main2.py
 # IDE and Editor files
 .vscode/
 .idea/

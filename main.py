@@ -243,8 +243,10 @@ async def process_message(data: ChatMessage) -> None:
             stream=True
         )
         
+        # Begin a Lexia session (aggregates + streams)
+        session = lexia.begin(data)
+        
         # Process streaming response
-        full_response = ""
         usage_info = None
         function_calls = []
         generated_image_url = None
@@ -255,9 +257,8 @@ async def process_message(data: ChatMessage) -> None:
             # Handle content chunks
             if chunk.choices[0].delta.content:
                 content = chunk.choices[0].delta.content
-                full_response += content
-                # Stream chunk to Lexia (handles dev/prod mode internally)
-                lexia.stream_chunk(data, content)
+                # Stream chunk to Lexia (handles dev/prod mode internally) and aggregate
+                session.stream(content)
             
             # Handle function call chunks
             if chunk.choices[0].delta.tool_calls:
@@ -278,7 +279,7 @@ async def process_message(data: ChatMessage) -> None:
                             
                             # Stream function call announcement to Lexia
                             function_msg = f"\n🔧 **Calling function:** {tool_call.function.name}"
-                            lexia.stream_chunk(data, function_msg)
+                            session.stream(function_msg)
                         
                         # Accumulate function arguments
                         if tool_call.function.arguments:
@@ -293,7 +294,7 @@ async def process_message(data: ChatMessage) -> None:
                                 if current_args.endswith('"') or current_args.endswith('}') or current_args.endswith(']'):
                                     parsed_args = json.loads(current_args)
                                     progress_msg = f"\n⚙️ **Function parameters:** {json.dumps(parsed_args, indent=2)}"
-                                    lexia.stream_chunk(data, progress_msg)
+                                    session.stream(progress_msg)
                             except json.JSONDecodeError:
                                 # JSON not complete yet, don't stream partial data
                                 pass
@@ -303,29 +304,20 @@ async def process_message(data: ChatMessage) -> None:
                 usage_info = chunk.usage
                 logger.info(f"📊 Usage info captured: {usage_info}")
         
-        logger.info(f"✅ OpenAI response complete. Length: {len(full_response)} characters")
+        logger.info("✅ OpenAI response stream complete")
         
         # Process function calls if any were made using the function handler
         function_result, generated_image_url = await process_function_calls(function_calls, lexia, data)
         if function_result:
-            full_response += function_result
+            session.stream(function_result)
         
         logger.info(f"🖼️ Final generated_image_url value: {generated_image_url}")
         
+        # Finalize via session (aggregated). Include file_url if available
+        final_text = lexia.close(data, usage_info, file_url=generated_image_url)
+        
         # Store response in conversation memory
-        conversation_manager.add_message(data.thread_id, "assistant", full_response)
-        
-        # Send complete response to Lexia with full data structure
-        logger.info("📤 Sending complete response to Lexia...")
-        
-        # Include generated image in the response if one was created
-        if generated_image_url:
-            logger.info(f"🖼️ Including generated image in API call: {generated_image_url}")
-            # Use the complete_response method that includes the file field
-            lexia.complete_response(data, full_response, usage_info, file_url=generated_image_url)
-        else:
-            # Normal response without image
-            lexia.complete_response(data, full_response, usage_info)
+        conversation_manager.add_message(data.thread_id, "assistant", final_text)
         
         logger.info(f"🎉 Message processing completed successfully for thread {data.thread_id}")
             
